@@ -1,0 +1,21 @@
+[submodule "GraphBLAS"]
+	path = GraphBLAS
+	url = https://github.com/DrTimothyAldenDavis/GraphBLAS
+[submodule "LAGraph"]
+	path = LAGraph
+	url = https://github.com/GraphBLAS/LAGraph
+[submodule "spla"]
+	path = spla
+	url = https://github.com/SparseLinearAlgebra/spla
+
+[submodule "spla-bench"]
+	path = spla-bench
+	url = https://github.com/Friend-zva/spla-bench
+
+[submodule "FlameGraph"]
+	path = FlameGraph
+	url = https://github.com/brendangregg/FlameGraph
+
+[submodule "Galois"]
+	path = Galois
+	url = https://github.com/IntelligentSoftwareSystems/Galois
