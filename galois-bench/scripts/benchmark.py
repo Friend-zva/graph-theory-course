@@ -60,7 +60,20 @@ def main() -> None:
         default=[1],
         help="MPI process counts (default: 1)",
     )
-    parser.add_argument("-t", type=int, default=4, help="Threads per process")
+    parser.add_argument(
+        "-t",
+        "--threads",
+        dest="t",
+        nargs="+",
+        type=int,
+        default=[4],
+        help="Threads per process, one value per -n value (default: 4)",
+    )
+    parser.add_argument(
+        "--no-save",
+        action="store_true",
+        help="Run without creating benchmark files or updating benchmarks/recent",
+    )
     args = parser.parse_args(argv)
     if args.algo is None:
         args.algo = list(config.BINARIES)
@@ -73,33 +86,45 @@ def main() -> None:
             parser.error(f"graph does not exist: {graph}")
     if any(node <= 0 for node in args.nodes):
         parser.error("node counts must be positive")
+    if any(thread <= 0 for thread in args.t):
+        parser.error("thread counts must be positive")
+    if len(args.nodes) != len(args.t):
+        parser.error("-n and -t must contain the same number of values")
 
-    run_dir = (
-        config.ROOT / "benchmarks" / datetime.now().strftime("%Y-%m-%d_%H-%M-%S_%f")
-    )
-    run_dir.mkdir(parents=True)
-    raw_dir = run_dir / "raw"
-    raw_dir.mkdir()
+    if args.no_save:
+        stat_directory = None
+    else:
+        run_dir = (
+            config.ROOT
+            / "benchmarks"
+            / datetime.now().strftime("%Y-%m-%d_%H-%M-%S_%f")
+        )
+        run_dir.mkdir(parents=True)
+        stat_directory = run_dir / "raw"
+        stat_directory.mkdir()
 
     fixed_options = {
-        "bfs": [f"-graphTranspose={graph}"],
-        "sssp": [f"-graphTranspose={graph}"],
-        "pr": [f"-graphTranspose={graph}", "-tolerance=0.001"],
-        "tc": ["-symmetricGraph"],
+        "bfs": ["-symmetricGraph", "-partition=oec", "-exec=Sync"],
+        "sssp": ["-symmetricGraph", "-partition=oec", "-exec=Sync"],
+        "pr": ["-symmetricGraph", "-partition=oec", "-exec=Sync", "-tolerance=0.001"],
+        "tc": ["-symmetricGraph", "-partition=oec"],
     }
 
     environment = os.environ.copy()
     environment["GALOIS_DO_NOT_BIND_THREADS"] = "1"
     for graph in graphs:
         dataset_name = graph.stem
-        for node_count in args.nodes:
+        for node_count, thread_count in zip(args.nodes, args.t):
             for algorithm in algorithms:
                 binary = config.BINARIES[algorithm]
                 if not binary.is_file():
                     parser.error(f"binary does not exist: {binary}")
 
                 stat_file = (
-                    raw_dir / f"{algorithm}_{dataset_name}_n{node_count}_t{args.t}.csv"
+                    Path(os.devnull)
+                    if stat_directory is None
+                    else stat_directory
+                    / f"{algorithm}_{dataset_name}_n{node_count}_t{thread_count}.csv"
                 )
                 command = [
                     "mpirun",
@@ -107,7 +132,7 @@ def main() -> None:
                     str(node_count),
                     str(binary),
                     str(graph),
-                    f"-t={args.t}",
+                    f"-t={thread_count}",
                     f"-runs={args.iterations}",
                     f"-statFile={stat_file}",
                     *fixed_options[algorithm],
@@ -115,10 +140,11 @@ def main() -> None:
                 print("$", " ".join(command), flush=True)
                 subprocess.run(command, env=environment, check=True)
 
-    recent = config.ROOT / "benchmarks" / "recent"
-    if recent.exists() or recent.is_symlink():
-        recent.unlink()
-    os.symlink(run_dir.name, recent, target_is_directory=True)
+    if not args.no_save:
+        recent = config.ROOT / "benchmarks" / "recent"
+        if recent.exists() or recent.is_symlink():
+            recent.unlink()
+        os.symlink(run_dir.name, recent, target_is_directory=True)
 
 
 if __name__ == "__main__":
