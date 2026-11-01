@@ -3,10 +3,10 @@
 import argparse
 import csv
 import math
+import re
 import statistics
 import sys
 from pathlib import Path
-import re
 from typing import Dict, Iterable, List, Optional, Tuple
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -71,11 +71,7 @@ def parse_file(path: Path, skip_first: bool) -> Tuple[str, str, Dict[str, object
     stats, params = read_stats(path)
     algorithm = algorithm_name(path, stats)
     algorithm_region = next(
-        (
-            region
-            for (region, category) in stats
-            if category == "TimerTotal"
-        ),
+        (region for (region, category) in stats if category == "TimerTotal"),
         algorithm.upper(),
     )
     timers = {
@@ -160,6 +156,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="Raw stat file or directory (default: latest benchmark run)",
     )
     parser.add_argument(
+        "-s",
         "--skip-first-iteration",
         action="store_true",
         help="Exclude Timer_0 from avg/median and require runs > 1",

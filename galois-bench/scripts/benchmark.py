@@ -95,9 +95,7 @@ def main() -> None:
         stat_directory = None
     else:
         run_dir = (
-            config.ROOT
-            / "benchmarks"
-            / datetime.now().strftime("%Y-%m-%d_%H-%M-%S_%f")
+            config.ROOT / "benchmarks" / datetime.now().strftime("%Y-%m-%d_%H-%M-%S_%f")
         )
         run_dir.mkdir(parents=True)
         stat_directory = run_dir / "raw"
