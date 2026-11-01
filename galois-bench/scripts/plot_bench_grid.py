@@ -4,8 +4,9 @@ import argparse
 import csv
 import math
 import re
+import statistics
 import sys
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -18,7 +19,20 @@ RUN_DIRECTORY_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_\d+$")
 ALGORITHMS = ("bfs", "sssp", "pr", "tc")
 
 Pair = Tuple[int, int]
-Point = Tuple[int, int, float, float, str, float, float, Optional[float]]
+Point = Tuple[
+    int,
+    int,
+    float,
+    float,
+    float,
+    float,
+    str,
+    float,
+    float,
+    float,
+    Optional[float],
+    Optional[str],
+]
 
 
 def latest_parsed_directory() -> Path:
@@ -38,6 +52,13 @@ def format_replication_factor(value: Optional[str]) -> str:
     except (InvalidOperation, TypeError):
         return "0.00"
     return str(number.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def dataset_title(dataset: str, iterations: Iterable[float]) -> str:
+    values = [iteration for iteration in iterations if iteration]
+    if not values:
+        return dataset
+    return f"{dataset} (iter: {int(statistics.mean(values) + 0.5)})"
 
 
 def timer_range(row: dict, fallback: float) -> Tuple[float, float, Optional[float]]:
@@ -108,20 +129,35 @@ def read_points(
         try:
             total = float(row["median_timer"])
             algo_time = float(row.get(f"median_{match['algo']}", 0) or 0)
+            overhead = float(row["median_overhead"])
+            iterations = float(row.get("median_NumIterations", 0) or 0)
         except (KeyError, TypeError, ValueError):
             continue
         minimum, maximum, warm_up = timer_range(row, total)
         replication = format_replication_factor(row.get("ReplicationFactor", ""))
+        edge_replication = (
+            format_replication_factor(row.get("ReplicationFactorEdges"))
+            if algo == "tc" and row.get("ReplicationFactorEdges")
+            else None
+        )
         groups.setdefault(match["dataset"], []).append(
             (
                 int(match["n"]),
                 int(match["t"]),
                 total / 1000,
                 algo_time / 1000,
+                overhead / 1000,
+                (
+                    float(row.get("median_pr_delta", 0) or 0) / 1000
+                    if match["algo"] == "pr"
+                    else 0
+                ),
                 replication,
+                iterations,
                 minimum,
                 maximum,
                 warm_up,
+                edge_replication,
             )
         )
     return groups
@@ -153,35 +189,88 @@ def plot_grid(
                 raw_points, key=lambda point: pair_order[(point[0], point[1])]
             )
         labels = [
-            f"({node},{thread}):{node * (thread + 1)}\nrf:{replication}"
-            for node, thread, _, _, replication, _, _, _ in points
+            f"({node},{thread}):{node * (thread + 1)}\n"
+            f"rfN:({replication})\nrfE:({edge_replication})"
+            if edge_replication
+            else f"({node},{thread}):{node * (thread + 1)}\nrf:{replication}"
+            for (
+                node,
+                thread,
+                _,
+                _,
+                _,
+                _,
+                replication,
+                _,
+                _,
+                _,
+                _,
+                edge_replication,
+            ) in points
         ]
-        total = [value for _, _, value, _, _, _, _, _ in points]
-        algo_time = [value for _, _, _, value, _, _, _, _ in points]
-        overhead = [value - algo for value, algo in zip(total, algo_time)]
-        minimums = [minimum for _, _, _, _, _, minimum, _, _ in points]
-        maximums = [maximum for _, _, _, _, _, _, maximum, _ in points]
-        warm_ups = [warm_up for _, _, _, _, _, _, _, warm_up in points]
+        total = [value for _, _, value, _, _, _, _, _, _, _, _, _ in points]
+        algo_time = [value for _, _, _, value, _, _, _, _, _, _, _, _ in points]
+        overhead = [value for _, _, _, _, value, _, _, _, _, _, _, _ in points]
+        delta = [
+            min(max(value, 0), max(extra, 0))
+            for value, extra in zip(
+                [value for _, _, _, _, _, value, _, _, _, _, _, _ in points],
+                overhead,
+            )
+        ]
+        iterations = [iteration for _, _, _, _, _, _, _, iteration, _, _, _, _ in points]
+        minimums = [minimum for _, _, _, _, _, _, _, _, minimum, _, _, _ in points]
+        maximums = [maximum for _, _, _, _, _, _, _, _, _, maximum, _, _ in points]
+        warm_ups = [warm_up for _, _, _, _, _, _, _, _, _, _, warm_up, _ in points]
         positions = list(range(len(labels)))
-        axis.bar(
-            positions,
-            algo_time,
-            color="tab:blue",
-            label="algorithm",
-        )
-        axis.bar(
-            positions,
-            overhead,
-            bottom=algo_time,
-            color="tab:orange",
-            label="overhead",
-        )
+        if algorithm == "pr":
+            overhead_remainder = [
+                extra - delta_value
+                for extra, delta_value in zip(overhead, delta)
+            ]
+            axis.bar(
+                positions,
+                algo_time,
+                color="tab:blue",
+                label="compute",
+            )
+            axis.bar(
+                positions,
+                delta,
+                bottom=algo_time,
+                color="tab:green",
+                label="delta",
+            )
+            axis.bar(
+                positions,
+                overhead_remainder,
+                bottom=[
+                    compute + delta_value
+                    for compute, delta_value in zip(algo_time, delta)
+                ],
+                color="tab:orange",
+                label="overhead",
+            )
+        else:
+            axis.bar(
+                positions,
+                algo_time,
+                color="tab:blue",
+                label="compute",
+            )
+            axis.bar(
+                positions,
+                overhead,
+                bottom=algo_time,
+                color="tab:orange",
+                label="overhead",
+            )
         axis.errorbar(
             positions,
             total,
             yerr=[
-                [value - minimum for value, minimum in zip(total, minimums)],
-                [maximum - value for value, maximum in zip(total, maximums)],
+                [max(0, value - minimum) for value, minimum in zip(total, minimums)],
+                [max(0, maximum - value) for value, maximum in zip(total, maximums)],
             ],
             fmt="none",
             ecolor="black",
@@ -197,12 +286,21 @@ def plot_grid(
             s=12,
             zorder=4,
         )
-        axis.set_title(dataset)
+        axis.set_title(dataset_title(dataset, iterations))
         axis.set_xticks(positions, labels)
         if axis in axes_flat[::2]:
             axis.set_ylabel("Time, s")
         axis.set_axisbelow(False)
-        axis.set_ylim(0, max(total + maximums) * 1.11 if total else 1)
+        stacked_maximum = max(
+            (compute + extra for compute, extra in zip(algo_time, overhead)),
+            default=0,
+        )
+        axis.set_ylim(
+            0,
+            max(total + maximums + [stacked_maximum]) * 1.11
+            if total
+            else 1,
+        )
         axis.margins(x=0.12)
         axis.grid(axis="y", alpha=0.25)
 
@@ -215,7 +313,14 @@ def plot_grid(
         axis.set_visible(False)
     index = min(1, len(groups) - 1)
     handles, labels = axes_flat[index].get_legend_handles_labels()
-    order = [labels.index("overhead"), labels.index("algorithm")]
+    if algorithm == "pr":
+        order = [
+            labels.index("overhead"),
+            labels.index("delta"),
+            labels.index("compute"),
+        ]
+    else:
+        order = [labels.index("overhead"), labels.index("compute")]
     axes_flat[index].legend(
         [handles[index] for index in order],
         [labels[index] for index in order],
@@ -314,12 +419,10 @@ def main() -> None:
                     {
                         (node, thread)
                         for points in groups.values()
-                        for node, thread, _, _, _, _, _, _ in points
+                        for node, thread, _, _, _, _, _, _, _, _, _ in points
                     }
                 )
-                label = "_".join(
-                    f"n{node}t{thread}" for node, thread in combinations
-                )
+                label = "_".join(f"n{node}t{thread}" for node, thread in combinations)
             output = args.output or input_dir.parent / "plots" / (
                 f"{algorithm}_grid_{label}.png"
             )

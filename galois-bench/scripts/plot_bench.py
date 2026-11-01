@@ -3,10 +3,11 @@
 import argparse
 import csv
 import re
+import statistics
 import sys
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT = SCRIPT_DIR.parent
@@ -31,6 +32,13 @@ def format_replication_factor(value: Optional[str]) -> str:
     except (InvalidOperation, TypeError):
         return "0.00"
     return str(number.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def dataset_title(dataset: str, iterations: Iterable[float]) -> str:
+    values = [iteration for iteration in iterations if iteration]
+    if not values:
+        return dataset
+    return f"{dataset} (iter: {int(statistics.mean(values) + 0.5)})"
 
 
 def timer_range(row: dict, fallback: float) -> Tuple[float, float, Optional[float]]:
@@ -162,6 +170,8 @@ def main() -> None:
         try:
             value = float(row[args.metric])
             algo_time = float(row.get(f"median_{match['algo']}", 0) or 0)
+            overhead = float(row["median_overhead"])
+            iterations = float(row.get("median_NumIterations", 0) or 0)
         except (TypeError, ValueError, KeyError):
             continue
         minimum, maximum, warm_up = timer_range(row, value)
@@ -172,10 +182,23 @@ def main() -> None:
                 int(match["t"]),
                 value / 1000,
                 algo_time / 1000,
+                overhead / 1000,
+                (
+                    float(row.get("median_pr_delta", 0) or 0) / 1000
+                    if match["algo"] == "pr"
+                    else 0
+                ),
                 replication,
+                iterations,
                 minimum,
                 maximum,
                 warm_up,
+                (
+                    format_replication_factor(row.get("ReplicationFactorEdges"))
+                    if match["algo"] == "tc"
+                    and row.get("ReplicationFactorEdges")
+                    else None
+                ),
             )
         )
 
@@ -185,32 +208,92 @@ def main() -> None:
         else:
             points.sort(key=lambda point: pair_order[(point[0], point[1])])
         labels = [
-            f"({node},{thread}):{node * (thread + 1)}\nrf:{replication}"
-            for node, thread, _, _, replication, _, _, _ in points
+            f"({node},{thread}):{node * (thread + 1)}\n"
+            f"rfN:({replication})\nrfE:({edge_replication})"
+            if edge_replication
+            else f"({node},{thread}):{node * (thread + 1)}\nrf:{replication}"
+            for (
+                node,
+                thread,
+                _,
+                _,
+                _,
+                _,
+                replication,
+                _,
+                _,
+                _,
+                _,
+                edge_replication,
+            ) in points
         ]
-        values = [value for _, _, value, _, _, _, _, _ in points]
-        algo_values = [value for _, _, _, value, _, _, _, _ in points]
-        overhead_values = [value - algo for value, algo in zip(values, algo_values)]
-        minimums = [minimum for _, _, _, _, _, minimum, _, _ in points]
-        maximums = [maximum for _, _, _, _, _, _, maximum, _ in points]
-        warm_ups = [warm_up for _, _, _, _, _, _, _, warm_up in points]
+        values = [value for _, _, value, _, _, _, _, _, _, _, _, _ in points]
+        algo_values = [value for _, _, _, value, _, _, _, _, _, _, _, _ in points]
+        overhead_values = [value for _, _, _, _, value, _, _, _, _, _, _, _ in points]
+        delta_values = [
+            min(max(delta, 0), max(overhead, 0))
+            for delta, overhead in zip(
+                [value for _, _, _, _, _, value, _, _, _, _, _, _ in points],
+                overhead_values,
+            )
+        ]
+        iterations = [iteration for _, _, _, _, _, _, _, iteration, _, _, _, _ in points]
+        minimums = [minimum for _, _, _, _, _, _, _, _, minimum, _, _, _ in points]
+        maximums = [maximum for _, _, _, _, _, _, _, _, _, maximum, _, _ in points]
+        warm_ups = [warm_up for _, _, _, _, _, _, _, _, _, _, warm_up, _ in points]
         figure, axis = plt.subplots(figsize=(10, 7))
         positions = list(range(len(labels)))
-        axis.bar(positions, algo_values, color="tab:blue", label="algorithm")
         if args.metric == "median_timer":
-            axis.bar(
-                positions,
-                overhead_values,
-                bottom=algo_values,
-                color="tab:orange",
-                label="overhead",
-            )
+            if algorithm == "pr":
+                overhead_remainder = [
+                    overhead - delta
+                    for overhead, delta in zip(overhead_values, delta_values)
+                ]
+                axis.bar(
+                    positions,
+                    algo_values,
+                    color="tab:blue",
+                    label="compute",
+                )
+                axis.bar(
+                    positions,
+                    delta_values,
+                    bottom=algo_values,
+                    color="tab:green",
+                    label="delta",
+                )
+                axis.bar(
+                    positions,
+                    overhead_remainder,
+                    bottom=[
+                        compute + delta
+                        for compute, delta in zip(algo_values, delta_values)
+                    ],
+                    color="tab:orange",
+                    label="overhead",
+                )
+            else:
+                axis.bar(
+                    positions,
+                    algo_values,
+                    color="tab:blue",
+                    label="compute",
+                )
+                axis.bar(
+                    positions,
+                    overhead_values,
+                    bottom=algo_values,
+                    color="tab:orange",
+                    label="overhead",
+                )
+        else:
+            axis.bar(positions, algo_values, color="tab:blue", label="compute")
         axis.errorbar(
             positions,
             values,
             yerr=[
-                [value - minimum for value, minimum in zip(values, minimums)],
-                [maximum - value for value, maximum in zip(values, maximums)],
+                [max(0, value - minimum) for value, minimum in zip(values, minimums)],
+                [max(0, maximum - value) for value, maximum in zip(values, maximums)],
             ],
             fmt="none",
             ecolor="black",
@@ -231,15 +314,31 @@ def main() -> None:
             "(MPI processes, threads): total threads, rf: replication factor"
         )
         axis.set_ylabel("Time, s")
-        axis.set_title(f"{algorithm} / {dataset}")
+        axis.set_title(f"{algorithm} / {dataset_title(dataset, iterations)}")
         axis.set_axisbelow(False)
-        axis.set_ylim(0, max(values + maximums) * 1.11 if values else 1)
+        stacked_maximum = max(
+            (compute + overhead for compute, overhead in zip(algo_values, overhead_values)),
+            default=0,
+        )
+        axis.set_ylim(
+            0,
+            max(values + maximums + [stacked_maximum]) * 1.11
+            if values
+            else 1,
+        )
         axis.margins(x=0.12)
         axis.grid(axis="y", alpha=0.25)
         handles, labels = axis.get_legend_handles_labels()
-        order = [labels.index("algorithm")]
+        order = [labels.index("compute")]
         if args.metric == "median_timer":
-            order.insert(0, labels.index("overhead"))
+            if algorithm == "pr":
+                order = [
+                    labels.index("overhead"),
+                    labels.index("delta"),
+                    labels.index("compute"),
+                ]
+            else:
+                order.insert(0, labels.index("overhead"))
         axis.legend(
             [handles[index] for index in order],
             [labels[index] for index in order],

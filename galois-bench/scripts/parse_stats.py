@@ -105,6 +105,17 @@ def parse_file(path: Path, skip_first: bool) -> Tuple[str, str, Dict[str, object
     ]
     values = timer_values[1:] if skip_first else timer_values
     algo_stat_values = algo_values[1:] if skip_first else algo_values
+    delta_values = [
+        stats.get((f"{algorithm_region}_delta_{index}", "Time"), 0.0)
+        for index in range(runs)
+    ] if algorithm == "pr" else [0.0] * runs
+    delta_stat_values = delta_values[1:] if skip_first else delta_values
+    iteration_values = [
+        stats.get((algorithm_region, f"NumIterations_{index}"), 0.0)
+        for index in range(runs)
+    ]
+    iteration_values = iteration_values[1:] if skip_first else iteration_values
+    overhead_values = [timer - algo for timer, algo in zip(values, algo_stat_values)]
     total_time = stats.get((algorithm_region, "TimerTotal"), 0.0)
     row: Dict[str, object] = {
         "dataset": dataset_name(params, path),
@@ -122,13 +133,28 @@ def parse_file(path: Path, skip_first: bool) -> Tuple[str, str, Dict[str, object
         row[f"NumWorkItems_{index}"] = stats.get(
             (algorithm_region, f"NumWorkItems_{index}"), 0.0
         )
+        if algorithm == "pr":
+            row[f"{algorithm_region}_delta_{index}"] = delta_values[index]
     row["TimerTotal"] = total_time
-    row["ReplicationFactor"] = stats.get(("Gluon", "ReplicationFactor"), 0.0)
+    row["ReplicationFactor"] = stats.get(
+        ("Gluon", "ReplicationFactor"),
+        stats.get(("dGraph_Mining", "ReplicationFactorNodes"), 0.0),
+    )
+    edge_replication = stats.get(
+        ("dGraph_Mining", "ReplicatonFactorEdges"),
+        stats.get(("dGraph_Mining", "ReplicationFactorEdges"), 0.0),
+    )
+    if algorithm == "tc" and edge_replication:
+        row["ReplicationFactorEdges"] = edge_replication
     row["warm_up"] = timer_values[0]
     row[f"avg_{algorithm}"] = statistics.mean(algo_stat_values)
     row[f"median_{algorithm}"] = statistics.median(algo_stat_values)
     row["avg_timer"] = statistics.mean(values)
     row["median_timer"] = statistics.median(values)
+    row["median_NumIterations"] = statistics.median(iteration_values)
+    row["median_overhead"] = statistics.median(overhead_values)
+    if algorithm == "pr":
+        row["median_pr_delta"] = statistics.median(delta_stat_values)
     return str(row["dataset"]), algorithm, row
 
 

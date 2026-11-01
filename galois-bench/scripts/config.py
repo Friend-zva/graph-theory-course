@@ -8,7 +8,7 @@ DATASETS = [
     ROOT / "datasets" / "coPapersDBLP.gr",
     ROOT / "datasets" / "belgium_osm.gr",
     ROOT / "datasets" / "rgg_n_2_22_s0.gr",
-    ROOT / "datasets" / "sol-LiveJournal1_sym_clear.gr",
+    ROOT / "datasets" / "soс-LiveJournal1_sym_clear.gr",
 ]
 
 BINARIES = {
