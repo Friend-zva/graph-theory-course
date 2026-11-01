@@ -2,6 +2,18 @@
 
 This repository contains a report on experiments for the Graph Theory course.
 
+## Datasets
+
+| Name             | Vertices | Edges | Avg Deg | Sd Deg | Max Deg |                                                                                  Link |
+| :--------------- | -------: | ----: | ------: | -----: | ------: | ------------------------------------------------------------------------------------: |
+| coPapersDBLP     |   540.5K | 30.5M |    56.4 |   66.2 |  3299.0 |  [link](https://www.cise.ufl.edu/research/sparse/matrices/DIMACS10/coPapersDBLP.html) |
+| belgium_osm      |     1.4M |  3.1M |     2.2 |    0.5 |    10.0 |   [link](https://www.cise.ufl.edu/research/sparse/matrices/DIMACS10/belgium_osm.html) |
+| rgg_n_2_22_s0    |     4.2M | 60.7M |    14.5 |    3.8 |    36.0 | [link](https://www.cise.ufl.edu/research/sparse/matrices/DIMACS10/rgg_n_2_22_s0.html) |
+| soc-LiveJournal1 |     4.8M | 85.7M |    17.7 |   52.0 | 20333.0 |  [link](https://www.cise.ufl.edu/research/sparse/matrices/SNAP/soc-LiveJournal1.html) |
+
+<!--| hollywood-2009 |     1.1M | 112.8M |    98.9 |  271.9 | 11467.0 |     [link](https://www.cise.ufl.edu/research/sparse/matrices/LAW/hollywood-2009.html) |-->
+<!--| road_central    |    14.1M |  33.9M |     2.4 |    0.9 |     8.0 |  [link](https://www.cise.ufl.edu/research/sparse/matrices/DIMACS10/road_central.html) |-->
+
 ## Module 1: Linear Algebra
 
 Objective: compare the performance of different solutions based on linear algebra.
@@ -39,14 +51,7 @@ cd spla
 python3 build.py
 ```
 
-> NOTE: You may need to make the following modifications to `build.py`:
-
-```py
-  build_config_args = ["cmake", ".", "-B", args.build_dir, "-G", "Ninja", f"-DCMAKE_BUILD_TYPE={args.build_type}",
-                         f"-DSPLA_BUILD_TESTS={args.tests}", f"-DSPLA_BUILD_EXAMPLES={args.examples}",
-                         f"-DSPLA_BUILD_OPENCL={args.opencl}",
-                         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"]
-```
+> NOTE: You may need to make the following modifications to `spla`. See [pathes](patches/spla).
 
 ## Module 2: Distributed graph processing
 
@@ -61,23 +66,15 @@ Build and install `Galois`:
 git clone https://github.com/IntelligentSoftwareSystems/Galois.git --depth 1
 cd Galois
 mkdir build && cd build
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DGALOIS_ENABLE_DIST=1 ..
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DGALOIS_COMM_STATS=ON -DGALOIS_ENABLE_DIST=1 ..
 cd lonestar/analytics/distributed
 make -j
 ```
 
-> NOTE: You may need to make the following modifications to `libgalois/include/galois/graphs/Details.h`:
+> NOTE: You may need to make the following modifications to `Galois`. See [pathes](patches/Galois).
 
-```cpp
-public:
-  EdgeSortIterator() : at(0) {}
-  EdgeSortIterator(EdgeIndex x, EdgeDst* dsts, EdgeData* data)
-      : at(x), edgeDst(dsts), edgeData(data) {}
+### Benchmarking scripts
 
-  Reference operator[](ptrdiff_t n) const {
-    return Reference(at + n, edgeDst, edgeData);
-  }
-
-private:
-  friend class boost::iterator_core_access;
-```
+`galois-bench/` contains scripts that run the distributed algorithms for
+several `-n` / `-t` values, parse the Galois `-statFile` output and plot the
+results. See [`galois-bench/README.md`](galois-bench/README.md).
