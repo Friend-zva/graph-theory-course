@@ -44,7 +44,7 @@ cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DOpenMP_C_INCLUDE_DIR="/opt/homebrew/o
 make -j
 ```
 
-> NOTE: You may need to make the following modifications to `LAGraph`. See [pathes](patches/LAGraph).
+> NOTE: You may need to make the following modifications to `LAGraph`. See [patches](patches/LAGraph).
 
 Build and install `Spla`:
 
@@ -54,7 +54,7 @@ cd Spla
 python3 build.py
 ```
 
-> NOTE: You may need to make the following modifications to `Spla`. See [pathes](patches/spla).
+> NOTE: You may need to make the following modifications to `Spla`. See [patches](patches/spla).
 
 ### Benchmark
 
@@ -87,7 +87,7 @@ cd lonestar/analytics/distributed
 make -j
 ```
 
-> NOTE: You may need to make the following modifications to `Galois`. See [pathes](patches/Galois).
+> NOTE: You may need to make the following modifications to `Galois`. See [patches](patches/Galois).
 
 ### Benchmark
 
