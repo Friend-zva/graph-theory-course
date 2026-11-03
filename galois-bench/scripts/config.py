@@ -14,6 +14,6 @@ DATASETS = [
 BINARIES = {
     "bfs": BUILD / "bfs" / "bfs-push-dist",
     "sssp": BUILD / "sssp" / "sssp-push-dist",
-    "pr": BUILD / "pagerank" / "pagerank-pull-dist",
+    "pr": BUILD / "pagerank" / "pagerank-push-dist",
     "tc": BUILD / "triangle-counting" / "triangle-counting-dist",
 }

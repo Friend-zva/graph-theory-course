@@ -4,15 +4,16 @@ This repository contains a report on experiments for the Graph Theory course.
 
 ## Datasets
 
-| Name             | Vertices | Edges | Avg Deg | Sd Deg | Max Deg |                                                                                  Link |
-| :--------------- | -------: | ----: | ------: | -----: | ------: | ------------------------------------------------------------------------------------: |
-| coPapersDBLP     |   540.5K | 30.5M |    56.4 |   66.2 |  3299.0 |  [link](https://www.cise.ufl.edu/research/sparse/matrices/DIMACS10/coPapersDBLP.html) |
-| belgium_osm      |     1.4M |  3.1M |     2.2 |    0.5 |    10.0 |   [link](https://www.cise.ufl.edu/research/sparse/matrices/DIMACS10/belgium_osm.html) |
-| rgg_n_2_22_s0    |     4.2M | 60.7M |    14.5 |    3.8 |    36.0 | [link](https://www.cise.ufl.edu/research/sparse/matrices/DIMACS10/rgg_n_2_22_s0.html) |
-| soc-LiveJournal1 |     4.8M | 85.7M |    17.7 |   52.0 | 20333.0 |  [link](https://www.cise.ufl.edu/research/sparse/matrices/SNAP/soc-LiveJournal1.html) |
+| Name              | Vertices |  Edges | Avg Deg | Sd Deg | Max Deg |                                                                                  Link |
+| :---------------- | -------: | -----: | ------: | -----: | ------: | ------------------------------------------------------------------------------------: |
+| coPapersDBLP      |   540.5K |  30.5M |    56.4 |   66.2 |  3299.0 |  [link](https://www.cise.ufl.edu/research/sparse/matrices/DIMACS10/coPapersDBLP.html) |
+| belgium_osm       |     1.4M |   3.1M |     2.2 |    0.5 |    10.0 |   [link](https://www.cise.ufl.edu/research/sparse/matrices/DIMACS10/belgium_osm.html) |
+| hollywood-2009    |     1.1M | 112.8M |    98.9 |  271.9 | 11467.0 |     [link](https://www.cise.ufl.edu/research/sparse/matrices/LAW/hollywood-2009.html) |
+| rgg_n_2_22_s0     |     4.2M |  60.7M |    14.5 |    3.8 |    36.0 | [link](https://www.cise.ufl.edu/research/sparse/matrices/DIMACS10/rgg_n_2_22_s0.html) |
+| soc-LiveJournal1* |     4.8M |  85.7M |    17.7 |   52.0 | 20333.0 |  [link](https://www.cise.ufl.edu/research/sparse/matrices/SNAP/soc-LiveJournal1.html) |
+| road_central      |    14.1M |  33.9M |     2.4 |    0.9 |     8.0 |  [link](https://www.cise.ufl.edu/research/sparse/matrices/DIMACS10/road_central.html) |
 
-<!--| hollywood-2009 |     1.1M | 112.8M |    98.9 |  271.9 | 11467.0 |     [link](https://www.cise.ufl.edu/research/sparse/matrices/LAW/hollywood-2009.html) |-->
-<!--| road_central    |    14.1M |  33.9M |     2.4 |    0.9 |     8.0 |  [link](https://www.cise.ufl.edu/research/sparse/matrices/DIMACS10/road_central.html) |-->
+`*`: symmetric and clear with `Galois` `graph-convert`
 
 ## Module 1: Linear Algebra
 

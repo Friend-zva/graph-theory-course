@@ -417,9 +417,9 @@ def main() -> None:
             else:
                 combinations = sorted(
                     {
-                        (node, thread)
+                        (point[0], point[1])
                         for points in groups.values()
-                        for node, thread, _, _, _, _, _, _, _, _, _ in points
+                        for point in points
                     }
                 )
                 label = "_".join(f"n{node}t{thread}" for node, thread in combinations)
