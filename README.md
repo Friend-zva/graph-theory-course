@@ -13,7 +13,7 @@ This repository contains a report on experiments for the Graph Theory course.
 | soc-LiveJournal1* |     4.8M |  85.7M |    17.7 |   52.0 | 20333.0 |  [link](https://www.cise.ufl.edu/research/sparse/matrices/SNAP/soc-LiveJournal1.html) |
 | road_central      |    14.1M |  33.9M |     2.4 |    0.9 |     8.0 |  [link](https://www.cise.ufl.edu/research/sparse/matrices/DIMACS10/road_central.html) |
 
-`*`: symmetric and clear with `Galois` `graph-convert`
+`*`: symmetric and clear with `Galois` `graph-convert` (`mtx2gr`, `gr2cgr`)
 
 ## Module 1: Linear Algebra
 
@@ -44,15 +44,30 @@ cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DOpenMP_C_INCLUDE_DIR="/opt/homebrew/o
 make -j
 ```
 
-Build and install `spla`:
+> NOTE: You may need to make the following modifications to `LAGraph`. See [pathes](patches/LAGraph).
+
+Build and install `Spla`:
 
 ```sh
 git clone https://github.com/SparseLinearAlgebra/spla.git --depth 1
-cd spla
+cd Spla
 python3 build.py
 ```
 
-> NOTE: You may need to make the following modifications to `spla`. See [pathes](patches/spla).
+> NOTE: You may need to make the following modifications to `Spla`. See [pathes](patches/spla).
+
+### Benchmark
+
+`spla-bench/` contains scripts that run the `spla` & `lagraph` algorithms. Clone and see [`README.md`](https://github.com/Friend-zva/spla-bench).
+
+### Profile
+
+```sh
+./spla/build/pr --mtxpath=./spla-bench/dataset/hollywood-09.mtx --run-cpu=false --run-ref=false // 1
+sample -wait pr 30 1 -file ./spla_pr_sample.txt // 2
+./FlameGraph/stackcollapse-sample.awk spla_pr_sample.txt > spla_pr.txt
+./FlameGraph/flamegraph.pl spla_pr.txt > spla_pr.svg
+```
 
 ## Module 2: Distributed graph processing
 
@@ -74,7 +89,7 @@ make -j
 
 > NOTE: You may need to make the following modifications to `Galois`. See [pathes](patches/Galois).
 
-### Benchmarking scripts
+### Benchmark
 
 `galois-bench/` contains scripts that run the distributed algorithms for
 several `-n` / `-t` values, parse the Galois `-statFile` output and plot the
