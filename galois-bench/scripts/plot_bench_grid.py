@@ -181,6 +181,9 @@ def plot_grid(
     )
     axes_flat = list(axes.flat)
     entries = sorted(groups.items())
+    has_overhead = any(
+        point[4] != 0 for raw_points in groups.values() for point in raw_points
+    )
     for axis, (dataset, raw_points) in zip(axes_flat, entries):
         if pair_order is None:
             points = sorted(raw_points, key=lambda point: (point[0], point[1]))
@@ -241,16 +244,17 @@ def plot_grid(
                 color="tab:green",
                 label="delta",
             )
-            axis.bar(
-                positions,
-                overhead_remainder,
-                bottom=[
-                    compute + delta_value
-                    for compute, delta_value in zip(algo_time, delta)
-                ],
-                color="tab:orange",
-                label="overhead",
-            )
+            if has_overhead:
+                axis.bar(
+                    positions,
+                    overhead_remainder,
+                    bottom=[
+                        compute + delta_value
+                        for compute, delta_value in zip(algo_time, delta)
+                    ],
+                    color="tab:orange",
+                    label="overhead",
+                )
         else:
             axis.bar(
                 positions,
@@ -258,13 +262,14 @@ def plot_grid(
                 color="tab:blue",
                 label="compute",
             )
-            axis.bar(
-                positions,
-                overhead,
-                bottom=algo_time,
-                color="tab:orange",
-                label="overhead",
-            )
+            if has_overhead:
+                axis.bar(
+                    positions,
+                    overhead,
+                    bottom=algo_time,
+                    color="tab:orange",
+                    label="overhead",
+                )
         axis.errorbar(
             positions,
             total,
@@ -314,13 +319,13 @@ def plot_grid(
     index = min(1, len(groups) - 1)
     handles, labels = axes_flat[index].get_legend_handles_labels()
     if algorithm == "pr":
-        order = [
-            labels.index("overhead"),
-            labels.index("delta"),
-            labels.index("compute"),
-        ]
+        order = [labels.index("delta"), labels.index("compute")]
+        if has_overhead:
+            order.insert(0, labels.index("overhead"))
     else:
-        order = [labels.index("overhead"), labels.index("compute")]
+        order = [labels.index("compute")]
+        if has_overhead:
+            order.insert(0, labels.index("overhead"))
     axes_flat[index].legend(
         [handles[index] for index in order],
         [labels[index] for index in order],

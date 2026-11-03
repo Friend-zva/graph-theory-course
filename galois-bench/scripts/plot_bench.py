@@ -241,6 +241,7 @@ def main() -> None:
         minimums = [minimum for _, _, _, _, _, _, _, _, minimum, _, _, _ in points]
         maximums = [maximum for _, _, _, _, _, _, _, _, _, maximum, _, _ in points]
         warm_ups = [warm_up for _, _, _, _, _, _, _, _, _, _, warm_up, _ in points]
+        has_overhead = any(overhead != 0 for overhead in overhead_values)
         figure, axis = plt.subplots(figsize=(10, 7))
         positions = list(range(len(labels)))
         if args.metric == "median_timer":
@@ -262,16 +263,17 @@ def main() -> None:
                     color="tab:green",
                     label="delta",
                 )
-                axis.bar(
-                    positions,
-                    overhead_remainder,
-                    bottom=[
-                        compute + delta
-                        for compute, delta in zip(algo_values, delta_values)
-                    ],
-                    color="tab:orange",
-                    label="overhead",
-                )
+                if has_overhead:
+                    axis.bar(
+                        positions,
+                        overhead_remainder,
+                        bottom=[
+                            compute + delta
+                            for compute, delta in zip(algo_values, delta_values)
+                        ],
+                        color="tab:orange",
+                        label="overhead",
+                    )
             else:
                 axis.bar(
                     positions,
@@ -279,13 +281,14 @@ def main() -> None:
                     color="tab:blue",
                     label="compute",
                 )
-                axis.bar(
-                    positions,
-                    overhead_values,
-                    bottom=algo_values,
-                    color="tab:orange",
-                    label="overhead",
-                )
+                if has_overhead:
+                    axis.bar(
+                        positions,
+                        overhead_values,
+                        bottom=algo_values,
+                        color="tab:orange",
+                        label="overhead",
+                    )
         else:
             axis.bar(positions, algo_values, color="tab:blue", label="compute")
         axis.errorbar(
@@ -332,13 +335,12 @@ def main() -> None:
         order = [labels.index("compute")]
         if args.metric == "median_timer":
             if algorithm == "pr":
-                order = [
-                    labels.index("overhead"),
-                    labels.index("delta"),
-                    labels.index("compute"),
-                ]
+                order = [labels.index("delta"), labels.index("compute")]
+                if has_overhead:
+                    order.insert(0, labels.index("overhead"))
             else:
-                order.insert(0, labels.index("overhead"))
+                if has_overhead:
+                    order.insert(0, labels.index("overhead"))
         axis.legend(
             [handles[index] for index in order],
             [labels[index] for index in order],
